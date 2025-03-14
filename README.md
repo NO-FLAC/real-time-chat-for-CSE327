@@ -1,3 +1,12 @@
+# Real-time chat
+## Group-1
+### Members
+```
+Daiyan Hossain Chowdhury 2111279642
+Umaira Chowdhury 2020163042
+Tanvir Anjum Neon 2131079642
+Saif Uz Zaman 1931587042
+```
 ## Setup
 
 #### - Create Virtual Environment
@@ -19,12 +28,14 @@ python3 -m venv venv
 ```
 pip install --upgrade pip
 pip install -r requirements.txt
+pip install -U 'channels[daphne]'
 ```
 
 <br>
 
 #### - Migrate to database
 ```
+python manage.py makemigrations
 python manage.py migrate
 python manage.py createsuperuser
 ```
