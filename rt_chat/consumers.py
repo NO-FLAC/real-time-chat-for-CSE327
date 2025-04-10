@@ -11,6 +11,11 @@ class ChatroomConsumer(WebsocketConsumer):
         self.chatroom_name = self.scope['url_route']['kwargs']['chatroom_name']
         self.chatroom = get_object_or_404(ChatGroup, group_name=self.chatroom_name)
 
+        # print(self.scope['url_route']['kwargs']['chatroom_name'])
+        # print(self.chatroom_name)
+        # print(self.chatroom)
+        # print(self.channel_layer)
+
         async_to_sync(self.channel_layer.group_add)(
             self.chatroom_name, self.channel_name
         )
@@ -73,5 +78,14 @@ class ChatroomConsumer(WebsocketConsumer):
     def online_count_handler(self, event):
         online_count = event['online_count']
         print('online=============>',online_count)
-        html = render_to_string("partials/online_count.html", {'online_count': online_count})
+
+        context = {
+            'online_count' : online_count,
+            'chat_group' : self.chatroom,
+            # 'users': users
+        }
+
+        print(self.chatroom.users_online.all())
+
+        html = render_to_string("partials/online_count.html", context=context)
         self.send(text_data=html)

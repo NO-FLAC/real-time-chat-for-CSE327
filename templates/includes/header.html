@@ -22,8 +22,18 @@
                 x-transition:enter-end="opacity-100 translate-y-0 scale-100"
                 >
                     <ul class="hoverlist [&>li>a]:justify-end">
+                        {% for chatroom in user.chat_groups.all %}
+                            {% if chatroom.groupchat_name %}
+                            <li>
+                                <a class="leading-5 text-right" href="{% url 'chatroom' chatroom.group_name %}">
+                                    {{ chatroom.groupchat_name|slice:":30" }}
+                                </a>
+                            </li>
+                            {% endif %}
+                        {% endfor %}
                         <li><a href="{% url 'profile' %}">My Profile</a></li>
                         <li><a href="{% url 'profile-edit' %}">Edit Profile</a></li>
+                        <li><a href="{% url 'new-groupchat' %}">Create Chat</a></li>
                         <li><a href="{% url 'profile-settings' %}">Settings</a></li>
                         <li><a href="{% url 'account_logout' %}">Log Out</a></li>
                     </ul>
