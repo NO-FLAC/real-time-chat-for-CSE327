@@ -80,18 +80,44 @@ def get_or_create_chatroom(request, username):
     chatroom.members.add(other_user, request.user)   
     return redirect('chatroom', chatroom.group_name)
 
-@login_required
-def create_groupchat(request):
-    form = NewGroupForm()
+from abc import abstractmethod
+
+class GroupCreator:
+    @abstractmethod
+    def factory_method(self, request):
+        pass
+
+    def createGroup(self, request):
+        # Call the factory method to create a Product object.
+        group = self.factory_method(request=request)
+
+        return group
     
-    if request.method == 'POST':
+class PrivateGroupCreator(GroupCreator):
+    def factory_method(self, request):
         form = NewGroupForm(request.POST)
         if form.is_valid():
             new_groupchat = form.save(commit=False)
             new_groupchat.admin = request.user
             new_groupchat.save()
             new_groupchat.members.add(request.user)
-            return redirect('chatroom', new_groupchat.group_name)
+
+            print("created New Group===================")
+            print(type(new_groupchat), '======================')
+            print(new_groupchat, '=========================')
+
+            return new_groupchat
+    
+
+@login_required
+def create_groupchat(request):
+    form = NewGroupForm()
+    group_creator = PrivateGroupCreator()
+    
+    if request.method == 'POST':
+        form = NewGroupForm(request.POST)
+        new_groupchat = group_creator.createGroup(request=request)
+        return redirect('chatroom', new_groupchat.group_name)
     
     context = {
         'form': form
