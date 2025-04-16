@@ -7,9 +7,46 @@ from .forms import *
 
 # Create your views here.
 
+
+
+#gpt
+class SingletonMeta(type):
+    _instances = {}
+
+    def __call__(cls, *args, **kwargs):
+        if cls not in cls._instances:
+            cls._instances[cls] = super().__call__(*args, **kwargs)
+        return cls._instances[cls]
+
+
+class SimpleLogger(metaclass=SingletonMeta):
+    def __init__(self, color_output=True):
+        self.color_output = color_output
+        self.colors = {
+            'reset': '\033[0m',
+            'object': '\033[36m',  # Cyan
+            'type': '\033[33m'     # Yellow
+        }
+    
+    def _format_log(self, obj):
+        """Format the log message with optional colors"""
+        obj_str = f"{self.colors['object']}{obj}{self.colors['reset']}"
+        type_str = f"{self.colors['type']}{type(obj).__name__}{self.colors['reset']}"
+        
+        if self.color_output:
+            return f"Object: {obj_str} | Type: {type_str}"
+        return f"Object: {obj} | Type: {type(obj).__name__}"
+    
+    def log(self, obj):
+        """Log an object with its type"""
+        print(self._format_log(obj))
+
 @login_required
 def chat_view(request, chatroom_name='public-chat'):
-    print("chatroom=======>", chatroom_name)
+    logger1 = SimpleLogger()
+
+    # print("chatroom=======>", chatroom_name)
+    logger1.log(chatroom_name)
     chat_group = get_object_or_404(ChatGroup, group_name=chatroom_name)
     chat_messages = chat_group.chat_messages.all()[:30]
     form = ChatmessageCreateForm()
@@ -24,19 +61,23 @@ def chat_view(request, chatroom_name='public-chat'):
                 other_user = member
                 break
 
-    print('other_user======>', other_user)
+    # print('other_user======>', other_user)
+    logger1.log(other_user)
     
     if chat_group.groupchat_name:
-        print("pass2")
+        # print("pass")
+        logger1.log('pass')
         if request.user not in chat_group.members.all():
-            print("pass2")
+            # print("pass2")
+            logger1.log('pass2')
             if request.user.emailaddress_set.filter(verified=True).exists():
                 chat_group.members.add(request.user)
             else:
                 messages.warning(request, 'You need to verify your email to join the chat!')
                 return redirect('profile-settings')
 
-    print('members=====>', chat_group.members.all())
+    # print('members=====>', chat_group.members.all())
+    logger1.log(chat_group.members.all())
     if request.htmx:
         form = ChatmessageCreateForm(request.POST)
         if form.is_valid():
@@ -97,6 +138,8 @@ class GroupCreator:
     
 class PrivateGroupCreator(GroupCreator):
     def factory_method(self, request):
+        logger2 = SimpleLogger()
+        
         form = NewGroupForm(request.POST)
         if form.is_valid():
             new_groupchat = form.save(commit=False)
@@ -107,6 +150,9 @@ class PrivateGroupCreator(GroupCreator):
             print("created New Group===================")
             print(type(new_groupchat), '======================')
             print(new_groupchat, '=========================')
+
+            logger2.log('created New Group')
+            logger2.log(new_groupchat)
 
             return new_groupchat
     
@@ -266,14 +312,14 @@ class Chatroom_View:
 class Chatroom_Leave_View(Chatroom_View):
 
     def __init__(self, request, chat_group):
+        self.logger = SimpleLogger()
         self.request = request
         self.chat_group = chat_group
 
     def operation(self):
         self.chat_group.members.remove(self.request.user)
 
-        print('admin==========>', self.chat_group.admin)
-
+        self.logger.log(self.chat_group.admin)
         messages.success(self.request, 'You left the Chat')
 
 class View_Decorator(Chatroom_View):
@@ -307,10 +353,11 @@ class CheckIfAdminLeftDecorator(View_Decorator):
     def __init__(self, component):
         self._component = component
         self.chat_group = self._component.chat_group
-        
+
     def CheckIfAdminLeft(self, chat_group):
-        if chat_group.admin not in chat_group.members.all():
-            chat_group.delete()
+        if ChatGroup.objects.filter(pk=chat_group.pk).exists():
+            if not chat_group.members.filter(id=chat_group.admin.id).exists():
+                chat_group.delete()
 
     def operation(self):
         self._component.operation()
@@ -327,12 +374,4 @@ def chatroom_leave_view(request, chatroom_name):
         checkEmptyroom = CheckChatroomEmptyDecorator(leave_view)
         checkadminleft =  CheckIfAdminLeftDecorator(checkEmptyroom)
         checkadminleft.operation()
-        # chat_group.members.remove(request.user)
-
-        # print('admin==========>', chat_group.admin)
-
-        # if not chat_group.members.all().exists():
-        #     chat_group.delete()
-
-        # messages.success(request, 'You left the Chat')
         return redirect('home')

@@ -1,9 +1,15 @@
 from channels.generic.websocket import WebsocketConsumer
 from django.shortcuts import get_object_or_404
 from django.template.loader import render_to_string
-import json
 from asgiref.sync import async_to_sync
-from .models import *
+from .models import ChatGroup, GroupMessage
+import json
+
+# from .subject import Subject
+# chat_subject = Subject()
+
+from .subject import ConcreteSubject
+chat_subject = ConcreteSubject()
 
 class ChatroomConsumer(WebsocketConsumer):
     def connect(self):
@@ -11,17 +17,17 @@ class ChatroomConsumer(WebsocketConsumer):
         self.chatroom_name = self.scope['url_route']['kwargs']['chatroom_name']
         self.chatroom = get_object_or_404(ChatGroup, group_name=self.chatroom_name)
 
-        # print(self.scope['url_route']['kwargs']['chatroom_name'])
-        # print(self.chatroom_name)
-        # print(self.chatroom)
-        # print(self.channel_layer)
+        if not self.user.is_authenticated:
+            self.close()
+            return
 
         async_to_sync(self.channel_layer.group_add)(
             self.chatroom_name, self.channel_name
         )
 
+        chat_subject.attach(self.channel_name)
+
         if self.user not in self.chatroom.users_online.all():
-            print("pass")
             self.chatroom.users_online.add(self.user)
             self.update_online_count()
 
@@ -31,6 +37,8 @@ class ChatroomConsumer(WebsocketConsumer):
         async_to_sync(self.channel_layer.group_discard)(
             self.chatroom_name, self.channel_name
         )
+
+        chat_subject.detach(self.channel_name)
 
         if self.user in self.chatroom.users_online.all():
             self.chatroom.users_online.remove(self.user)
@@ -47,13 +55,12 @@ class ChatroomConsumer(WebsocketConsumer):
         )
 
         event = {
-            'type':'message_handler',
+            'type': 'message_handler',
             'message_id': message.id
         }
 
-        async_to_sync(self.channel_layer.group_send)(
-            self.chatroom_name, event
-        )
+        
+        chat_subject.notify(event, self.channel_layer, self.chatroom_name)
 
     def message_handler(self, event):
         message_id = event['message_id']
@@ -63,7 +70,7 @@ class ChatroomConsumer(WebsocketConsumer):
             'user': self.user
         }
 
-        html = render_to_string("partials/chat_message_p.html", context = context)
+        html = render_to_string("partials/chat_message_p.html", context=context)
         self.send(text_data=html)
 
     def update_online_count(self):
@@ -73,22 +80,19 @@ class ChatroomConsumer(WebsocketConsumer):
             'type': 'online_count_handler',
             'online_count': online_count
         }
-        async_to_sync(self.channel_layer.group_send)(self.chatroom_name, event)
+        chat_subject.notify(event, self.channel_layer, self.chatroom_name)
 
     def online_count_handler(self, event):
         online_count = event['online_count']
-        print('online=============>',online_count)
 
         context = {
-            'online_count' : online_count,
-            'chat_group' : self.chatroom,
-            # 'users': users
+            'online_count': online_count,
+            'chat_group': self.chatroom
         }
-
-        print(self.chatroom.users_online.all())
 
         html = render_to_string("partials/online_count.html", context=context)
         self.send(text_data=html)
+
 
 
 class OnlineStatusConsumer(WebsocketConsumer):
