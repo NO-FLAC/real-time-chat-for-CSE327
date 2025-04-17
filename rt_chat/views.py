@@ -9,7 +9,7 @@ from .forms import *
 
 
 
-#gpt
+
 class SingletonMeta(type):
     _instances = {}
 
@@ -300,6 +300,7 @@ def chatroom_delete_view(request, chatroom_name):
     
     return render(request, 'chatroom_delete.html', {'chat_group': chat_group})
 
+#component
 class Chatroom_View:
     def __init__(self, request, chat_group):
         self.request = None
@@ -309,6 +310,7 @@ class Chatroom_View:
     def operation(self) -> str:
         pass
 
+#concrete component
 class Chatroom_Leave_View(Chatroom_View):
 
     def __init__(self, request, chat_group):
@@ -322,6 +324,7 @@ class Chatroom_Leave_View(Chatroom_View):
         self.logger.log(self.chat_group.admin)
         messages.success(self.request, 'You left the Chat')
 
+#base decorator
 class View_Decorator(Chatroom_View):
 
     _component: Chatroom_View = None
@@ -335,7 +338,8 @@ class View_Decorator(Chatroom_View):
 
     def operation(self):
         return self._component.operation()
-    
+
+#concrete decorator
 class CheckChatroomEmptyDecorator(View_Decorator):
     def __init__(self, component):
         self._component = component
@@ -348,7 +352,7 @@ class CheckChatroomEmptyDecorator(View_Decorator):
     def operation(self):
         self._component.operation()
         self.CheckChatroomEmpty(chat_group = self.chat_group)
-
+ #concrete decorator
 class CheckIfAdminLeftDecorator(View_Decorator):
     def __init__(self, component):
         self._component = component
